@@ -374,17 +374,11 @@
 
     <transition :name="transition">
       <ul ref="dropdownMenu" v-if="dropdownOpen" class="dropdown-menu" :style="{ 'max-height': maxHeight }">
-<<<<<<< HEAD
         <li v-for="(option, index) in filteredOptions" v-bind:key="index"
             :class="{ active: isOptionSelected(option), highlight: index === typeAheadPointer, disabled: isOptionDisabled(option) }"
             @mouseover="isOptionDisabled(option)?()=>{}:typeAheadPointer = index">
           <a @mousedown.prevent="select(option)" :class="{disabled: isOptionDisabled(option)}">
           <slot name="option" v-bind="option">
-=======
-        <li v-for="(option, index) in filteredOptions" v-bind:key="index" :class="{ active: isOptionSelected(option), highlight: index === typeAheadPointer }" @mouseover="typeAheadPointer = index">
-          <a @mousedown.prevent="select(option)">
-          <slot name="option" v-bind="(typeof option === 'object')?option:{[label]: option}">
->>>>>>> dd490488d0b1142102ef9cb873ba83789f4a068e
             {{ getOptionLabel(option) }}
           </slot>
           </a>
@@ -811,16 +805,12 @@
        * @return {void}
        */
       select(option) {
-<<<<<<< HEAD
       	if (option === null || option === undefined || this.isOptionDisabled(option)) {
       		return;
         }
         if (this.isOptionSelected(option)) {
           this.deselect(option)
         } else {
-=======
-        if (!this.isOptionSelected(option)) {
->>>>>>> dd490488d0b1142102ef9cb873ba83789f4a068e
           if (this.taggable && !this.optionExists(option)) {
             option = this.createOption(option)
           }
