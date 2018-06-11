@@ -104,3 +104,7 @@ When provided an array of objects, `vue-select` will display a single value of t
 ```
 
 ### For more information, please visit the [vue-select documentation.](https://sagalbot.github.io/vue-select)
+
+## License
+
+[MIT](https://github.com/sagalbot/vue-select/blob/master/LICENSE.md)

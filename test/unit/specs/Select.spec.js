@@ -4,7 +4,7 @@
 import Vue from 'vue'
 import vSelect from 'src/components/Select.vue'
 import pointerScroll from 'src/mixins/pointerScroll.js'
-
+Vue.config.productionTip = false
 //  http://vue-loader.vuejs.org/en/workflow/testing-with-mocks.html
 const Mock = require('!!vue?inject!src/components/Select.vue')
 
@@ -117,7 +117,7 @@ describe('Select.vue', () => {
 					options: [{label: 'This is Foo', value: 'foo'}, {label: 'This is Bar', value: 'bar'}]
 				}
 			}).$mount()
-			vm.$children[0].select({label: 'This is Foo', value: 'foo'})
+			vm.$children[0].deselect({label: 'This is Foo', value: 'foo'})
 			expect(vm.$children[0].mutableValue.length).toEqual(1)
 		})
 
@@ -129,7 +129,7 @@ describe('Select.vue', () => {
 					options: ['foo','bar']
 				}
 			}).$mount()
-			vm.$children[0].select('foo')
+			vm.$children[0].deselect('foo')
 			expect(vm.$children[0].mutableValue.length).toEqual(1)
 		}),
 
@@ -337,6 +337,47 @@ describe('Select.vue', () => {
 			}).$mount()
 			vm.$refs.select.search = 'ba'
 			expect(JSON.stringify(vm.$refs.select.filteredOptions)).toEqual(JSON.stringify([{label: 'Bar', value: 'bar'}, {label: 'Baz', value: 'baz'}]))
+		})
+
+		it('can determine if a given option should match the current search text', () => {
+			const vm = new Vue({
+				template: `<div><v-select ref="select" :filter-by="customFn" :options="[{label: 'Aoo', value: 'foo'}, {label: 'Bar', value: 'bar'}, {label: 'Baz', value: 'baz'}]" v-model="value"></v-select></div>`,
+				data: {value: 'foo'},
+				methods:{
+					customFn: (option, label, search) => label.match(new RegExp('^' + search, 'i'))
+				}
+			}).$mount()
+			vm.$refs.select.search = 'a'
+			expect(JSON.stringify(vm.$refs.select.filteredOptions)).toEqual(JSON.stringify([{label: 'Aoo', value: 'foo'}]))
+		})
+
+		it('can use a custom filtering method', () => {
+      const vm = new Vue({
+        template: `<div><v-select ref="select" :filter="customFn" :options="options" v-model="value"></v-select></div>`,
+        data: {
+        	options: ['foo','bar','baz'],
+        	value: 'foo'
+				},
+        methods:{
+          customFn(options, search, vm) {
+          	return options.filter(option => option.indexOf(search) > 0)
+					}
+        }
+      }).$mount()
+      vm.$refs.select.search = 'a'
+      expect(JSON.stringify(vm.$refs.select.filteredOptions)).toEqual(JSON.stringify(['bar','baz']))
+		})
+
+		it('can filter arrays of numbers', () => {
+      const vm = new Vue({
+        template: `<div><v-select ref="select" :options="options"></v-select></div>`,
+        data: {
+        	options: [1,5,10],
+        	value: 'foo'
+				},
+      }).$mount()
+      vm.$refs.select.search = '5'
+      expect(JSON.stringify(vm.$refs.select.filteredOptions)).toEqual(JSON.stringify([5]))
 		})
 	})
 
@@ -785,9 +826,10 @@ describe('Select.vue', () => {
 			const vm = new Vue({
 				template: '<div><v-select :options="[{}]"></v-select></div>',
 			}).$mount()
+			vm.$children[0].open = true
 			Vue.nextTick(() => {
 				expect(console.warn).toHaveBeenCalledWith(
-						'[vue-select warn]: Label key "option.label" does not exist in options object.' +
+						'[vue-select warn]: Label key "option.label" does not exist in options object {}.' +
 						'\nhttp://sagalbot.github.io/vue-select/#ex-labels'
 				)
 				done()
@@ -1065,7 +1107,7 @@ describe('Select.vue', () => {
 					vm.$refs.select.search = 'one'
 					searchSubmit(vm)
 					Vue.nextTick(() => {
-						expect(vm.$refs.select.mutableValue).toEqual([])
+						expect(vm.$refs.select.mutableValue).toEqual(['one'])
 						expect(vm.$refs.select.search).toEqual('')
 						done()
 					})
@@ -1084,7 +1126,7 @@ describe('Select.vue', () => {
 					vm.$refs.select.search = 'one'
 					searchSubmit(vm)
 					Vue.nextTick(() => {
-						expect(vm.$refs.select.mutableValue).toEqual([])
+						expect(vm.$refs.select.mutableValue).toEqual(['one'])
 						expect(vm.$refs.select.search).toEqual('')
 						done()
 					})
@@ -1283,11 +1325,11 @@ describe('Select.vue', () => {
 					options: ['one', 'two', 'three']
 				}
 			}).$mount()
-			
+
 			vm.$children[0].open = true
 			vm.$refs.select.search = "t"
 			expect(vm.$refs.select.search).toEqual('t')
-			
+
 			vm.$children[0].onSearchBlur()
 			Vue.nextTick(() => {
 				expect(vm.$refs.select.search).toEqual('')
@@ -1316,4 +1358,61 @@ describe('Select.vue', () => {
 			})
 		})
 	})
+
+	describe( 'Clear button', () => {
+
+		it( 'should be displayed on single select when value is selected', () => {
+			const VueSelect = Vue.extend( vSelect )
+			const vm = new VueSelect({
+				propsData: {
+					options: ['foo','bar'],
+					value: 'foo'
+				}
+			}).$mount()
+
+			expect(vm.showClearButton).toEqual(true)
+		})
+
+		it( 'should not be displayed on multiple select', () => {
+			const VueSelect = Vue.extend( vSelect )
+			const vm = new VueSelect({
+				propsData: {
+					options: ['foo','bar'],
+					value: 'foo',
+					multiple: true
+				}
+			}).$mount()
+
+			expect(vm.showClearButton).toEqual(false)
+		})
+
+		it( 'should remove selected value when clicked', () => {
+			const VueSelect = Vue.extend( vSelect )
+			const vm = new VueSelect({
+				propsData: {
+					options: ['foo','bar'],
+					value: 'foo'
+				}
+			}).$mount()
+			
+			expect(vm.mutableValue).toEqual('foo')
+			vm.$el.querySelector( 'button.clear' ).click()
+			expect(vm.mutableValue).toEqual(null)
+		})
+
+		it( 'should be disabled when component is disabled', () => {
+			const VueSelect = Vue.extend( vSelect )
+			const vm = new VueSelect({
+				propsData: {
+					options: ['foo','bar'],
+					value: 'foo',
+					disabled: true
+				}
+			}).$mount()
+
+			const buttonEl = vm.$el.querySelector( 'button.clear' )
+			expect(buttonEl.disabled).toEqual(true);
+		})
+	
+	});
 })

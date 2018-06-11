@@ -1,7 +1,7 @@
 <style>
   .v-select {
     position: relative;
-    font-family: sans-serif;
+    font-family: inherit;
   }
 
   .v-select,
@@ -22,6 +22,10 @@
   }
   .v-select.rtl .dropdown-menu {
     text-align: right;
+  }
+  .v-select.rtl .dropdown-toggle .clear {
+    left: 30px;
+    right: auto;
   }
   /* Open Indicator */
   .v-select .open-indicator {
@@ -80,6 +84,22 @@
     clear: both;
     height: 0;
   }
+
+  /* Clear Button */
+  .v-select .dropdown-toggle .clear {
+    position: absolute;
+    bottom: 9px;
+    right: 30px;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1;
+    color: rgba(60, 60, 60, .5);
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    cursor: pointer;
+  }
+
   /* Dropdown Toggle States */
   .v-select.searchable .dropdown-toggle {
     cursor: text;
@@ -186,10 +206,14 @@
     background: none;
     position: relative;
     box-shadow: none;
-    float: left;
-    clear: none;
   }
-  /* List Items */
+  .v-select.unsearchable input[type="search"] {
+    opacity: 0;
+  }
+  .v-select.unsearchable input[type="search"]:hover {
+    cursor: pointer;
+  }
+    /* List Items */
   .v-select li {
     line-height: 1.42857143; /* Normalize line height */
   }
@@ -252,6 +276,7 @@
 
   /* Disabled state */
   .v-select.disabled .dropdown-toggle,
+  .v-select.disabled .dropdown-toggle .clear,
   .v-select.disabled .dropdown-toggle input,
   .v-select.disabled .selected-tag .close,
   .v-select.disabled .open-indicator {
@@ -295,14 +320,17 @@
   <div :dir="dir" class="dropdown v-select" :class="dropdownClasses">
     <div ref="toggle" @mousedown.prevent="toggleDropdown" :class="['dropdown-toggle', 'clearfix']">
 
-      <span class="selected-tag" v-for="option in valueAsArray" v-bind:key="option.index">
-        <slot name="selected-option" v-bind="option">
-          {{ getOptionLabel(option) }}
-        </slot>
-        <button v-if="multiple" :disabled="disabled" @click="deselect(option)" type="button" class="close" aria-label="Remove option">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </span>
+      <slot v-for="option in valueAsArray" name="selected-option-container"
+            :option="(typeof option === 'object')?option:{[label]: option}" :deselect="deselect" :multiple="multiple" :disabled="disabled">
+        <span class="selected-tag" v-bind:key="option.index">
+          <slot name="selected-option" v-bind="(typeof option === 'object')?option:{[label]: option}">
+            {{ getOptionLabel(option) }}
+          </slot>
+          <button v-if="multiple" :disabled="disabled" @click="deselect(option)" type="button" class="close" aria-label="Remove option">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </span>
+    </slot>
 
       <input
               ref="search"
@@ -316,7 +344,7 @@
               @focus="onSearchFocus"
               type="search"
               class="form-control"
-              autocomplete="false"
+              autocomplete="off"
               :disabled="disabled"
               :placeholder="searchPlaceholder"
               :tabindex="tabindex"
@@ -325,6 +353,17 @@
               :id="inputId"
               aria-label="Search for option"
       >
+
+      <button 
+        v-show="showClearButton" 
+        :disabled="disabled" 
+        @click="clearSelection"
+        type="button" 
+        class="clear" 
+        title="Clear selection" 
+      >
+        <span aria-hidden="true">&times;</span>
+      </button>
 
       <i v-if="!noDrop" ref="openIndicator" role="presentation" class="open-indicator"></i>
 
@@ -335,11 +374,17 @@
 
     <transition :name="transition">
       <ul ref="dropdownMenu" v-if="dropdownOpen" class="dropdown-menu" :style="{ 'max-height': maxHeight }">
+<<<<<<< HEAD
         <li v-for="(option, index) in filteredOptions" v-bind:key="index"
             :class="{ active: isOptionSelected(option), highlight: index === typeAheadPointer, disabled: isOptionDisabled(option) }"
             @mouseover="isOptionDisabled(option)?()=>{}:typeAheadPointer = index">
           <a @mousedown.prevent="select(option)" :class="{disabled: isOptionDisabled(option)}">
           <slot name="option" v-bind="option">
+=======
+        <li v-for="(option, index) in filteredOptions" v-bind:key="index" :class="{ active: isOptionSelected(option), highlight: index === typeAheadPointer }" @mouseover="typeAheadPointer = index">
+          <a @mousedown.prevent="select(option)">
+          <slot name="option" v-bind="(typeof option === 'object')?option:{[label]: option}">
+>>>>>>> dd490488d0b1142102ef9cb873ba83789f4a068e
             {{ getOptionLabel(option) }}
           </slot>
           </a>
@@ -392,6 +437,15 @@
       disabled: {
         type: Boolean,
         default: false
+      },
+
+      /**
+       * Can the user clear the selected property?
+       * @type {Boolean}
+       */
+      clearable: {
+        type: Boolean,
+        default: true
       },
 
       /**
@@ -481,6 +535,13 @@
         type: Function,
         default(option) {
           if (typeof option === 'object') {
+            if (!option.hasOwnProperty(this.label)) {
+              return console.warn(
+                `[vue-select warn]: Label key "option.${this.label}" does not` +
+                ` exist in options object ${JSON.stringify(option)}.\n` +
+                'http://sagalbot.github.io/vue-select/#ex-labels'
+              )
+            }
             if (this.label && option[this.label]) {
               return option[this.label]
             }
@@ -567,6 +628,47 @@
       filterable: {
         type: Boolean,
         default: true
+      },
+
+      /**
+       * Callback to determine if the provided option should
+       * match the current search text. Used to determine
+       * if the option should be displayed.
+       * @type   {Function}
+       * @param  {Object || String} option
+       * @param  {String} label
+       * @param  {String} search
+       * @return {Boolean}
+       */
+      filterBy: {
+        type: Function,
+        default(option, label, search) {
+          return (label || '').toLowerCase().indexOf(search.toLowerCase()) > -1
+        }
+      },
+
+      /**
+       * Callback to filter results when search text
+       * is provided. Default implementation loops
+       * each option, and returns the result of
+       * this.filterBy.
+       * @type   {Function}
+       * @param  {Array} list of options
+       * @param  {String} search text
+       * @param  {Object} vSelect instance
+       * @return {Boolean}
+       */
+      filter: {
+        "type": Function,
+        default(options, search) {
+          return options.filter((option) => {
+            let label = this.getOptionLabel(option)
+            if (typeof label === 'number') {
+              label = label.toString()
+            }
+            return this.filterBy(option, label, search)
+          });
+        }
       },
 
       /**
@@ -709,12 +811,16 @@
        * @return {void}
        */
       select(option) {
+<<<<<<< HEAD
       	if (option === null || option === undefined || this.isOptionDisabled(option)) {
       		return;
         }
         if (this.isOptionSelected(option)) {
           this.deselect(option)
         } else {
+=======
+        if (!this.isOptionSelected(option)) {
+>>>>>>> dd490488d0b1142102ef9cb873ba83789f4a068e
           if (this.taggable && !this.optionExists(option)) {
             option = this.createOption(option)
           }
@@ -749,6 +855,14 @@
         } else {
           this.mutableValue = null
         }
+      },
+
+      /**
+       * Clears the currently selected value(s)
+       * @return {void}
+       */
+      clearSelection() {
+        this.mutableValue = this.multiple ? [] : null
       },
 
       /**
@@ -959,14 +1073,7 @@
         if (!this.filterable && !this.taggable) {
           return this.mutableOptions.slice()
         }
-        let options = this.mutableOptions.filter((option) => {
-          if (typeof option === 'object' && option.hasOwnProperty(this.label)) {
-            return option[this.label].toLowerCase().indexOf(this.search.toLowerCase()) > -1
-          } else if (typeof option === 'object' && !option.hasOwnProperty(this.label)) {
-            return console.warn(`[vue-select warn]: Label key "option.${this.label}" does not exist in options object.\nhttp://sagalbot.github.io/vue-select/#ex-labels`)
-          }
-          return option.toLowerCase().indexOf(this.search.toLowerCase()) > -1
-        })
+        let options = this.search.length ? this.filter(this.mutableOptions, this.search, this) : this.mutableOptions;
         if (this.taggable && this.search.length && !this.optionExists(this.search)) {
           options.unshift(this.search)
         }
@@ -996,10 +1103,18 @@
         if (this.multiple) {
           return this.mutableValue
         } else if (this.mutableValue) {
-          return [this.mutableValue]
+          return [].concat(this.mutableValue)
         }
 
         return []
+      },
+
+      /**
+       * Determines if the clear button should be displayed.
+       * @return {Boolean}
+       */
+      showClearButton() {
+        return !this.multiple && this.clearable && !this.open && this.mutableValue != null
       }
     },
 
