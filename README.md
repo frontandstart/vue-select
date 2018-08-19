@@ -2,6 +2,8 @@
 
 > A native Vue.js select component that provides similar functionality to Select2 without the overhead of jQuery.
 
+Want to help out as a primary contributor? [Get in touch](https://github.com/sagalbot/vue-select/issues/581)!
+
 #### Features
 - AJAX Support
 - Tagging
